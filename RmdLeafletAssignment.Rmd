@@ -1,0 +1,72 @@
+---
+title: "Assignment R Markdown and Leaflet"
+author: "E. Moerman"
+date: "10/19/2016"
+output: html_document
+---
+
+This is assignment gives an example of what can be done using Leaflet in a R Markdown document.
+
+The map on the next page shows all trees that have been cut down or that are going to be cut down in 2014 or 2015 for the city of Utrecht in The Netherlands.
+The icons indicate the reason for cutting down the tree. 
+The reasons are 
+
+- the tree (or an important part of it) is dead 
+- the tree is infected by a fungus 
+- the tree has a disease 
+- other reasons, mostly mechanical reasons 
+
+```{r, echo=FALSE, fig.align='center', fig.cap='Tree felling in Utrecht', message=FALSE}
+
+# Getting and preparing data.
+
+# I was running out of disk space and I had to move over some of the R packages to this directory. This will probably lead to an error on other machines. If you've intstalled the libraries that are used here then you should be able to safely remove this line.
+.libPaths(c(.libPaths(), "/media/Partition_3/R/lib"))
+
+library(leaflet)
+
+# Getting the tree icons.
+urlDeadTree <- "http://ultrademocracy.org/images/treeDead.png"
+urlDiseasedTree <- "http://ultrademocracy.org/images/treeDiseased.png"
+urlInfectedTree <- "http://ultrademocracy.org/images/treeInfected.png"
+urlOtherTree <- "http://ultrademocracy.org/images/treeOther.png"
+
+#Trees to be cut down and their locations in Utrecht, Netherlands
+treesCutDf <- read.csv("https://ckan.dataplatform.nl/dataset/296b6530-352d-43ad-92e6-0dbae12ac72a/resource/dd02d39b-26e6-4c8e-b75d-53ad392afbd5/download/vellijst.csv")
+
+# Setting the health column. The value is determined by text fragments in a free field describing the reason for cutting down the tree. 
+# This column is used to determine the icons to use.
+# 0 = other reasons
+treesCutDf$health <- 0
+# 1 = (partly) dead
+treesCutDf$health[grep("sterf", ignore.case = T, treesCutDf$ns1.field1099)] <- 1
+treesCutDf$health[grep("dood", ignore.case = T,  treesCutDf$ns1.field1099)] <- 1
+# 2 = infected by a fungus
+treesCutDf$health[grep("zwam", ignore.case = T,  treesCutDf$ns1.field1099)] <- 2
+# 3 = diseased
+treesCutDf$health[grep("ziekte", ignore.case = T,  treesCutDf$ns1.field1099)] <- 3
+
+# Getting the correct icons.
+iconVector <- icons(
+        iconUrl = ifelse(treesCutDf$health==3, urlDiseasedTree        , ifelse(treesCutDf$health==2, urlInfectedTree,
+    ifelse(treesCutDf$health==1, urlDeadTree, urlOtherTree))))
+
+```
+
+Clicking on a tree icon will show the name of the species in Dutch.
+
+```{r, echo=FALSE, message=FALSE}
+
+# Legend for icons.
+# See http://stackoverflow.com/questions/37862467/leaflet-legend-for-custom-markers-in-r
+html_legend <- paste("<img src='", urlDeadTree, "'>Dead or dying tree<br/><img src='", urlDiseasedTree, "'>Diseased<br/><img src='", urlInfectedTree, "'>Infected<br/><img src='", urlOtherTree, "'>Other reasons")
+
+treesCutDf %>% 
+        leaflet() %>% 
+        addTiles() %>%
+        addMarkers(clusterOptions=markerClusterOptions(), 
+                   icon=iconVector, 
+                   popup=treesCutDf$title2) %>%
+        addControl(html=html_legend, position="bottomleft")
+
+```
